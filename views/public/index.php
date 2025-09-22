@@ -12,7 +12,7 @@ $baseUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/'); // /PakenhamH_Web_App/p
         <h1 class="display-5 fw-semibold">Local care. Modern medicine.</h1>
         <p class="lead">Emergency, surgery, maternity, and community health services for Pakenham and Cardinia.</p>
         <div class="d-flex gap-2">
-          <a href="<?= $baseUrl ?>/index.php?p=auth/login" class="btn btn-primary btn-lg px-4">Login</a>
+          <a href="<?= $baseUrl ?>/index.php?p=public/login" class="btn btn-primary btn-lg px-4">Login</a>
           <a href="<?= $baseUrl ?>/index.php?p=public/register" class="btn btn-outline-primary btn-lg px-4">Register patient</a>
         </div>
         <div class="row mt-4 text-secondary">
@@ -26,7 +26,7 @@ $baseUrl = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/'); // /PakenhamH_Web_App/p
           <div class="card-body">
             <h5 class="card-title mb-2">Already registered?</h5>
             <p class="mb-3">Sign in and you’ll be redirected to your PMS area based on your role (Admin, Clinician, Reception, or Patient).</p>
-            <a class="btn btn-success" href="<?= $baseUrl ?>/index.php?p=auth/login">Go to Login</a>
+            <a class="btn btn-success" href="<?= $baseUrl ?>/index.php?p=public/login" >Go to Login</a>
           </div>
         </div>
       </div>

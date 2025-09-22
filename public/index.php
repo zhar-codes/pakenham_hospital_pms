@@ -19,6 +19,15 @@ $routes = [
   'auth/logout'     => $CTRL_DIR . '/auth/logout.php',
   'auth/register'   => $CTRL_DIR . '/auth/register_patient.php',
   'public/register' => $VIEW_DIR . '/public/register_patient.php',
+  'public/login'    => $VIEW_DIR . '/public/login.php',
+  'admin/dashboard'  => $VIEW_DIR . '/admin/dashboard.php',
+  'clinician/dashboard'  => $VIEW_DIR . '/clinician/dashboard.php',
+  'reception/dashboard'  => $VIEW_DIR . '/reception/dashboard.php',
+  'patient/dashboard'       => $VIEW_DIR . '/patient/dashboard.php',
+
+
+
+
 ];
 
 if (isset($routes[$PAGE]) && file_exists($routes[$PAGE])) {

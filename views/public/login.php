@@ -14,7 +14,7 @@ unset($_SESSION['flash']);
         <?php if ($flash): ?>
           <div class="alert alert-danger"><?= htmlspecialchars($flash) ?></div>
         <?php endif; ?>
-        <form method="post" action="<?= $baseUrl ?>/index.php?p=auth/login" novalidate>
+        <form method="POST" action="/pakenham_hospital_pms/controllers/auth/login.php">
           <div class="mb-3">
             <label class="form-label" for="username">Username</label>
             <input class="form-control" id="username" name="username" required autofocus>
