@@ -49,14 +49,16 @@ function nav_active(string $slug): string {
       </ul>
 
       <div class="d-flex gap-2">
-        <?php if (!empty($_SESSION['auth']['username'])): ?>
-          <span class="navbar-text me-2">Signed in as <?= htmlspecialchars($_SESSION['auth']['username']) ?></span>
-          <a class="btn btn-outline-light btn-sm" href="<?= $baseUrl ?>/index.php?p=auth/logout">Logout</a>
-        <?php else: ?>
-          <a class="btn btn-outline-light btn-sm" href="<?= $baseUrl ?>/index.php?p=auth/login">Login</a>
-          <a class="btn btn-warning btn-sm" href="<?= $baseUrl ?>/index.php?p=public/register">Register</a>
-        <?php endif; ?>
-      </div>
+  <?php if (!empty($_SESSION['auth'])): ?>
+    <span class="navbar-text text-white-50">
+      Hello, <?= htmlspecialchars($_SESSION['auth']['username']) ?>
+      (<?= htmlspecialchars($_SESSION['auth']['role']) ?>)
+    </span>
+    <a class="btn btn-outline-light" href="<?= $baseUrl ?>/index.php?p=auth/logout">Logout</a>
+  <?php else: ?>
+    <a class="btn btn-outline-light" href="<?= $baseUrl ?>/index.php?p=public/login">Login</a>
+    <a class="btn btn-warning text-dark" href="<?= $baseUrl ?>/index.php?p=public/register">Register</a>
+  <?php endif; ?>
     </div>
   </div>
 </nav>

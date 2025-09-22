@@ -15,7 +15,7 @@ $rootUrl = rtrim(dirname($baseUrl), '/');                // /PakenhamH_Web_App
         and connect with our care teams securely online.
       </p>
       <div class="d-flex gap-2 mt-3">
-        <a class="btn btn-primary btn-lg" href="<?= $baseUrl ?>/index.php?p=auth/login">Login</a>
+        <a class="btn btn-primary btn-lg" href="<?= $baseUrl ?>/index.php?p=public/login">Login</a>
         <a class="btn btn-outline-primary btn-lg" href="<?= $baseUrl ?>/index.php?p=public/register">Register as Patient</a>
       </div>
     </div>
@@ -24,7 +24,7 @@ $rootUrl = rtrim(dirname($baseUrl), '/');                // /PakenhamH_Web_App
         <div class="card-body">
           <h5 class="card-title">Already registered?</h5>
           <p class="card-text">Sign in and you’ll be redirected to your PMS area based on your role (Admin, Clinician, Reception, or Patient).</p>
-          <a class="btn btn-success" href="<?= $baseUrl ?>/index.php?p=auth/login">Go to Login</a>
+          <a class="btn btn-success" href="<?= $baseUrl ?>/index.php?p=public/login">Go to Login</a>
         </div>
       </div>
     </div>

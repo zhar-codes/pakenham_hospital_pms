@@ -1,11 +1,79 @@
 <?php
-// /views/patient/dashboard.php
-$title  = 'Patient · Dashboard';
-$user   = $user ?? 'User Name';
-$active = 'pat_dashboard';   // highlights in patient sidebar/top
-$menu   = 'patient';         // tells header.php to use patient menu
+declare(strict_types=1);
 
-require_once __DIR__ . '/../../includes/header.php'; // provides $routePatient and loads nav
+// Guard: patients only.
+require __DIR__ . '/../../includes/auth_guard.php';
+require_auth_role('patient');
+
+// Page metadata / state
+$title  = 'Patient · Dashboard';
+$active = 'pat_dashboard';
+$menu   = 'patient';
+
+$sessionUser = $_SESSION['auth']['username'] ?? 'Patient';
+$sessionEmail = $_SESSION['auth']['email'] ?? null;
+
+// Defaults (safe placeholders)
+$profile = [
+    'patient_id' => '—',
+    'name'       => $sessionUser,
+    'email'      => $sessionEmail ?: '—',
+    'phone'      => '—',
+];
+
+$appointments = []; // upcoming appointments to list
+
+try {
+    if (isset($pdo) && $pdo instanceof PDO) {
+        // Map current user -> patient record
+        $uid = (int)($_SESSION['auth']['id'] ?? 0);
+
+        // Pull patient + contact info (optional user link)
+        $sql = "
+            SELECT p.id AS patient_id,
+                   CONCAT(p.first_name,' ',p.last_name) AS full_name,
+                   COALESCE(u.email, p.email) AS email,
+                   p.phone
+            FROM patients p
+            LEFT JOIN users u ON u.id = p.user_id
+            WHERE p.user_id = :uid
+            LIMIT 1
+        ";
+        $st = $pdo->prepare($sql);
+        $st->execute([':uid' => $uid]);
+        if ($row = $st->fetch()) {
+            $profile['patient_id'] = (string)$row['patient_id'];
+            $profile['name']       = $row['full_name'] ?: $profile['name'];
+            $profile['email']      = $row['email']     ?: $profile['email'];
+            $profile['phone']      = $row['phone']     ?: $profile['phone'];
+        }
+
+        // Upcoming appointments for this patient (today onward)
+        if ($profile['patient_id'] !== '—') {
+            $st = $pdo->prepare("
+                SELECT
+                    DATE(a.scheduled_at) AS d,
+                    DATE_FORMAT(a.scheduled_at, '%H:%i') AS t,
+                    CONCAT(c.first_name,' ',c.last_name) AS clinician,
+                    COALESCE(a.location, 'Main Clinic') AS location,
+                    a.status
+                FROM appointments a
+                JOIN clinicians c ON c.id = a.clinician_id
+                WHERE a.patient_id = :pid
+                  AND a.scheduled_at >= NOW()
+                ORDER BY a.scheduled_at ASC
+                LIMIT 10
+            ");
+            $st->execute([':pid' => (int)$profile['patient_id']]);
+            $appointments = $st->fetchAll() ?: [];
+        }
+    }
+} catch (Throwable $e) {
+    // Leave placeholders; never fatal on dashboard.
+}
+
+// Layout header (provides $routePatient and loads nav)
+require_once __DIR__ . '/../../includes/header.php';
 ?>
 <div class="row g-4">
   <?php require_once __DIR__ . '/_sidebar.php'; ?>
@@ -25,25 +93,25 @@ require_once __DIR__ . '/../../includes/header.php'; // provides $routePatient a
           <div class="col-md-6">
             <div class="border rounded p-3 h-100">
               <div class="text-muted small">Name</div>
-              <div class="fw-semibold"><?= htmlspecialchars($user) ?></div>
+              <div class="fw-semibold"><?= htmlspecialchars($profile['name']) ?></div>
             </div>
           </div>
           <div class="col-md-6">
             <div class="border rounded p-3 h-100">
               <div class="text-muted small">Patient ID</div>
-              <div class="fw-semibold">—</div>
+              <div class="fw-semibold"><?= htmlspecialchars($profile['patient_id']) ?></div>
             </div>
           </div>
           <div class="col-md-6">
             <div class="border rounded p-3 h-100">
               <div class="text-muted small">Email</div>
-              <div class="fw-semibold">user@example.com</div>
+              <div class="fw-semibold"><?= htmlspecialchars($profile['email']) ?></div>
             </div>
           </div>
           <div class="col-md-6">
             <div class="border rounded p-3 h-100">
               <div class="text-muted small">Phone</div>
-              <div class="fw-semibold">—</div>
+              <div class="fw-semibold"><?= htmlspecialchars($profile['phone']) ?></div>
             </div>
           </div>
         </div>
@@ -77,15 +145,27 @@ require_once __DIR__ . '/../../includes/header.php'; // provides $routePatient a
               </tr>
             </thead>
             <tbody>
-              <?php for ($i=0; $i<4; $i++): ?>
-              <tr>
-                <td>—</td>
-                <td>—</td>
-                <td>—</td>
-                <td>—</td>
-                <td><span class="badge bg-secondary">—</span></td>
-              </tr>
-              <?php endfor; ?>
+              <?php if (!empty($appointments)): ?>
+                <?php foreach ($appointments as $a): ?>
+                  <tr>
+                    <td><?= htmlspecialchars($a['d']) ?></td>
+                    <td><?= htmlspecialchars($a['t']) ?></td>
+                    <td><?= htmlspecialchars($a['clinician']) ?></td>
+                    <td><?= htmlspecialchars($a['location']) ?></td>
+                    <td><span class="badge bg-secondary"><?= htmlspecialchars($a['status']) ?></span></td>
+                  </tr>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <?php for ($i=0; $i<4; $i++): ?>
+                  <tr>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td><span class="badge bg-secondary">—</span></td>
+                  </tr>
+                <?php endfor; ?>
+              <?php endif; ?>
             </tbody>
           </table>
         </div>
