@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors/IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# PHP / local env
+.env
+.env.local
+vendor/
+composer.lock
+
+# Logs & temp
+*.log
+logs/
+tmp/
+cache/
+
+# Node (if any)
+node_modules/
+npm-debug.log*
+
+# MySQL Workbench temp exports
+db/export_tmp/
+
+# XAMPP uploads/cache
+public/uploads/tmp/
