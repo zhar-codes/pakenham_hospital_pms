@@ -1,57 +1,56 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types=1);
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require __DIR__ . '/../../lib/AuthDb.php'; // defines authdb_login()
+
+// Optional CSRF check (uncomment when ready)
+/*
+if (!isset($_POST['csrf'], $_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], (string)$_POST['csrf'])) {
+  $_SESSION['flash'] = 'Please try again.';
+  header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/index.php?p=public/login');
+  exit;
+}
+*/
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/index.php?p=public/login');
+  exit;
 }
 
-// Absolute base to your public router (adjust if your folder name changes)
-$PUBLIC_BASE = '/pakenham_hospital_pms/public';
-
-require_once dirname(__DIR__, 2) . '/lib/AuthDb.php'; // provides authdb_login()
-
-// If someone opens this file directly (GET), send them to the public login page.
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-    header('Location: ' . $PUBLIC_BASE . '/index.php?p=public/login');
-    exit;
-}
-
-// Read form inputs
 $username = trim((string)($_POST['username'] ?? ''));
 $password = (string)($_POST['password'] ?? '');
 
-// Basic validation
 if ($username === '' || $password === '') {
-    $_SESSION['flash'] = 'Please enter username and password.';
-    header('Location: ' . $PUBLIC_BASE . '/index.php?p=public/login');
-    exit;
+  $_SESSION['flash'] = 'Please enter username and password.';
+  header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/index.php?p=public/login');
+  exit;
 }
 
-// Try DB login (expects users.status = 'Active' and bcrypt password_hash)
 $user = authdb_login($username, $password);
-
 if (!$user) {
-    $_SESSION['flash'] = 'Invalid username or password.';
-    header('Location: ' . $PUBLIC_BASE . '/index.php?p=public/login');
-    exit;
+  $_SESSION['flash'] = 'Invalid username or password.';
+  header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/index.php?p=public/login');
+  exit;
 }
 
-// Store session (do NOT include the hash)
+$role = strtolower(trim((string)$user['role']));
+$aliases = ['receptionist'=>'reception','doctor'=>'clinician','physician'=>'clinician'];
+$role = $aliases[$role] ?? $role;
+
 $_SESSION['auth'] = [
-    'id'       => (int)$user['id'],
-    'username' => (string)$user['username'],
-    'role'     => (string)$user['role'],
-    'email'    => $user['email'] ?? null,
+  'id'       => (int)$user['id'],
+  'username' => $user['username'],
+  'role'     => $role,
+  'email'    => $user['email'] ?? null,
 ];
 
-// Role → route mapping (via your public router)
 $roleRoutes = [
-    'admin'     => 'admin/dashboard',
-    'clinician' => 'clinician/dashboard',
-    'reception' => 'reception/dashboard',
-    'patient'   => 'patient/portal', // change to 'patient/dashboard' if that’s your file
+  'admin'     => 'admin/dashboard',
+  'clinician' => 'clinician/dashboard',
+  'reception' => 'reception/dashboard',
+  'patient'   => 'patient/dashboard',
 ];
 
-$target = $roleRoutes[$_SESSION['auth']['role']] ?? 'home';
-header('Location: ' . $PUBLIC_BASE . '/index.php?p=' . $target);
+$target = $roleRoutes[$role] ?? 'home';
+header('Location: ' . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/index.php?p=' . $target);
 exit;
