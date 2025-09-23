@@ -24,6 +24,11 @@ $baseUrl = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
   </style>
 </head>
 <body>
+  <?php
+$flashPath = dirname(__DIR__) . '/includes/flash.php';
+if (file_exists($flashPath)) include $flashPath;
+?>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container">
     <a class="navbar-brand" href="<?= $baseUrl ?>/index.php?p=home">Pakenham Hospital</a>
