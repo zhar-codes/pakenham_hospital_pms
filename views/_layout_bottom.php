@@ -22,4 +22,11 @@
   <!-- Bootstrap JS (needed for navbar toggler, modals, etc.) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+<?php if (!empty($_SESSION['flash'])): ?>
+  <div class="alert alert-success"><?= htmlspecialchars($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+<?php endif; ?>
+<?php if (!empty($_SESSION['flash_error'])): ?>
+  <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['flash_error']); unset($_SESSION['flash_error']); ?></div>
+<?php endif; ?>
+
 </html>

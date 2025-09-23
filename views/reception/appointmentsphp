@@ -1,13 +1,58 @@
 ﻿<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../includes/auth_guard.php';
+require_auth_role('reception');
+
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  require_once __DIR__ . '/../../config/db.php';
+}
+
 $title  = 'Reception · Appointments';
-$user   = $user ?? 'User Name';
 $active = 'appointments';
 $menu   = 'reception';
-require_once __DIR__ . '/../../includes/header.php';
+
+require_once __DIR__ . '/../../includes/header.php'; // provides $routeReception, $baseUrl
 ?>
 <div class="row g-4">
   <?php require_once __DIR__ . '/_sidebar.php'; ?>
+
   <section class="col-lg-9">
+
+    <!-- New appointment form (calls sp_book_appointment) -->
+    <div class="card mb-4"><div class="card-body">
+      <h2 class="h6 mb-3">Book an Appointment</h2>
+
+      <form class="row g-3" method="post" action="<?= $baseUrl ?>/index.php?p=appointments/book">
+        <div class="col-md-3">
+          <label class="form-label" for="patient_id">Patient ID</label>
+          <input id="patient_id" name="patient_id" type="number" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="clinician_id">Clinician ID</label>
+          <input id="clinician_id" name="clinician_id" type="number" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="scheduled_at">Date &amp; Time</label>
+          <input id="scheduled_at" name="scheduled_at" type="datetime-local" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="location">Location</label>
+          <input id="location" name="location" type="text" class="form-control" placeholder="Main Clinic">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="reason">Reason</label>
+          <input id="reason" name="reason" type="text" class="form-control" placeholder="e.g., initial consult">
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-calendar-plus"></i> Book
+          </button>
+        </div>
+      </form>
+    </div></div>
+
+    <!-- Filters (static placeholders, keep if you want) -->
     <div class="card mb-4"><div class="card-body">
       <form class="row g-3 align-items-end" method="get" action="<?= $routeReception ?>/appointments.php">
         <div class="col-md-3">
@@ -31,11 +76,11 @@ require_once __DIR__ . '/../../includes/header.php';
         <div class="col-12 d-flex gap-2">
           <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Apply</button>
           <a class="btn btn-outline-secondary" href="<?= $routeReception ?>/appointments.php"><i class="bi bi-x-circle"></i> Clear</a>
-          <a class="btn btn-success ms-auto" href="<?= $routeReception ?>/appointment_form.php"><i class="bi bi-calendar-plus"></i> New Appointment</a>
         </div>
       </form>
     </div></div>
 
+    <!-- Listing (placeholder) -->
     <div class="card"><div class="card-body">
       <div class="table-responsive">
         <table class="table align-middle">
@@ -46,18 +91,20 @@ require_once __DIR__ . '/../../includes/header.php';
               <th class="text-end" style="width:160px;">Actions</th>
             </tr>
           </thead>
-          <tbody><?php for ($i=0; $i<8; $i++): ?>
-            <tr>
-              <td>—</td><td>—</td><td><a href="<?= $routeReception ?>/patients.php?id=<?= $i ?>">—</a></td>
-              <td>—</td><td><span class="badge bg-secondary">—</span></td>
-              <td class="text-end">
-                <div class="btn-group btn-group-sm">
-                  <a class="btn btn-outline-primary" href="#"><i class="bi bi-check2-circle"></i></a>
-                  <a class="btn btn-outline-secondary" href="<?= $routeReception ?>/appointment_form.php?id=<?= $i ?>"><i class="bi bi-pencil"></i></a>
-                  <a class="btn btn-outline-danger" href="#"><i class="bi bi-x-lg"></i></a>
-                </div>
-              </td>
-            </tr><?php endfor; ?>
+          <tbody>
+            <?php for ($i=0; $i<8; $i++): ?>
+              <tr>
+                <td>—</td><td>—</td><td><a href="<?= $routeReception ?>/patients.php?id=<?= $i ?>">—</a></td>
+                <td>—</td><td><span class="badge bg-secondary">—</span></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-primary" href="#"><i class="bi bi-check2-circle"></i></a>
+                    <a class="btn btn-outline-secondary" href="#"><i class="bi bi-pencil"></i></a>
+                    <a class="btn btn-outline-danger" href="#"><i class="bi bi-x-lg"></i></a>
+                  </div>
+                </td>
+              </tr>
+            <?php endfor; ?>
           </tbody>
         </table>
       </div>
@@ -70,6 +117,7 @@ require_once __DIR__ . '/../../includes/header.php';
         </ul>
       </nav>
     </div></div>
+
   </section>
 </div>
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

@@ -5,74 +5,78 @@ declare(strict_types=1);
 require __DIR__ . '/../../includes/auth_guard.php';
 require_auth_role('patient');
 
+// Ensure PDO
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  require_once __DIR__ . '/../../config/db.php';
+}
+
 // Page metadata / state
 $title  = 'Patient · Dashboard';
 $active = 'pat_dashboard';
 $menu   = 'patient';
 
-$sessionUser = $_SESSION['auth']['username'] ?? 'Patient';
+$sessionUser  = $_SESSION['auth']['username'] ?? 'Patient';
 $sessionEmail = $_SESSION['auth']['email'] ?? null;
 
 // Defaults (safe placeholders)
 $profile = [
-    'patient_id' => '—',
-    'name'       => $sessionUser,
-    'email'      => $sessionEmail ?: '—',
-    'phone'      => '—',
+  'patient_id' => '—',
+  'name'       => $sessionUser,
+  'email'      => $sessionEmail ?: '—',
+  'phone'      => '—',
 ];
 
-$appointments = []; // upcoming appointments to list
+$appointments = []; // upcoming appointments from the view
 
 try {
-    if (isset($pdo) && $pdo instanceof PDO) {
-        // Map current user -> patient record
-        $uid = (int)($_SESSION['auth']['id'] ?? 0);
+  // Map current user -> patient record
+  $uid = (int)($_SESSION['auth']['id'] ?? 0);
 
-        // Pull patient + contact info (optional user link)
-        $sql = "
-            SELECT p.id AS patient_id,
-                   CONCAT(p.first_name,' ',p.last_name) AS full_name,
-                   COALESCE(u.email, p.email) AS email,
-                   p.phone
-            FROM patients p
-            LEFT JOIN users u ON u.id = p.user_id
-            WHERE p.user_id = :uid
-            LIMIT 1
-        ";
-        $st = $pdo->prepare($sql);
-        $st->execute([':uid' => $uid]);
-        if ($row = $st->fetch()) {
-            $profile['patient_id'] = (string)$row['patient_id'];
-            $profile['name']       = $row['full_name'] ?: $profile['name'];
-            $profile['email']      = $row['email']     ?: $profile['email'];
-            $profile['phone']      = $row['phone']     ?: $profile['phone'];
-        }
+  // Pull patient + contact info (optional user link)
+  $sql = "
+      SELECT p.id AS patient_id,
+             CONCAT(p.first_name,' ',p.last_name) AS full_name,
+             COALESCE(u.email, p.email) AS email,
+             p.phone
+      FROM patients p
+      LEFT JOIN users u ON u.id = p.user_id
+      WHERE p.user_id = :uid
+      LIMIT 1
+  ";
+  $st = $pdo->prepare($sql);
+  $st->execute([':uid' => $uid]);
+  if ($row = $st->fetch()) {
+    $profile['patient_id'] = (string)$row['patient_id'];
+    $profile['name']       = $row['full_name'] ?: $profile['name'];
+    $profile['email']      = $row['email']     ?: $profile['email'];
+    $profile['phone']      = $row['phone']     ?: $profile['phone'];
+  }
 
-        // Upcoming appointments for this patient (today onward)
-        if ($profile['patient_id'] !== '—') {
-            $st = $pdo->prepare("
-                SELECT
-                    DATE(a.scheduled_at) AS d,
-                    DATE_FORMAT(a.scheduled_at, '%H:%i') AS t,
-                    CONCAT(c.first_name,' ',c.last_name) AS clinician,
-                    COALESCE(a.location, 'Main Clinic') AS location,
-                    a.status
-                FROM appointments a
-                JOIN clinicians c ON c.id = a.clinician_id
-                WHERE a.patient_id = :pid
-                  AND a.scheduled_at >= NOW()
-                ORDER BY a.scheduled_at ASC
-                LIMIT 10
-            ");
-            $st->execute([':pid' => (int)$profile['patient_id']]);
-            $appointments = $st->fetchAll() ?: [];
-        }
-    }
+  // Upcoming appointments for this patient (via VIEW)
+  if ($profile['patient_id'] !== '—') {
+    $st = $pdo->prepare("
+      SELECT
+        appointment_id,
+        patient_id,
+        clinician_id,
+        clinician_name,
+        scheduled_at,
+        DATE_FORMAT(scheduled_at, '%Y-%m-%d') AS d,
+        DATE_FORMAT(scheduled_at, '%H:%i')     AS t,
+        status
+      FROM v_patient_upcoming_appointments
+      WHERE patient_id = :pid
+      ORDER BY scheduled_at
+      LIMIT 10
+    ");
+    $st->execute([':pid' => (int)$profile['patient_id']]);
+    $appointments = $st->fetchAll() ?: [];
+  }
 } catch (Throwable $e) {
-    // Leave placeholders; never fatal on dashboard.
+  // Keep placeholders; avoid fatal on dashboard.
 }
 
-// Layout header (provides $routePatient and loads nav)
+// Layout header (provides routes + nav)
 require_once __DIR__ . '/../../includes/header.php';
 ?>
 <div class="row g-4">
@@ -140,7 +144,6 @@ require_once __DIR__ . '/../../includes/header.php';
                 <th style="width:130px;">Date</th>
                 <th style="width:110px;">Time</th>
                 <th>Doctor</th>
-                <th style="width:160px;">Location</th>
                 <th style="width:120px;">Status</th>
               </tr>
             </thead>
@@ -150,21 +153,21 @@ require_once __DIR__ . '/../../includes/header.php';
                   <tr>
                     <td><?= htmlspecialchars($a['d']) ?></td>
                     <td><?= htmlspecialchars($a['t']) ?></td>
-                    <td><?= htmlspecialchars($a['clinician']) ?></td>
-                    <td><?= htmlspecialchars($a['location']) ?></td>
-                    <td><span class="badge bg-secondary"><?= htmlspecialchars($a['status']) ?></span></td>
+                    <td><?= htmlspecialchars($a['clinician_name']) ?></td>
+                    <td>
+                      <?php
+                        $st = (string)($a['status'] ?? '—');
+                        $badge = 'secondary';
+                        if ($st === 'Scheduled')  $badge = 'info';
+                        if ($st === 'Checked-in') $badge = 'success';
+                        if ($st === 'Cancelled')  $badge = 'danger';
+                      ?>
+                      <span class="badge bg-<?= $badge ?>"><?= htmlspecialchars($st) ?></span>
+                    </td>
                   </tr>
                 <?php endforeach; ?>
               <?php else: ?>
-                <?php for ($i=0; $i<4; $i++): ?>
-                  <tr>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td><span class="badge bg-secondary">—</span></td>
-                  </tr>
-                <?php endfor; ?>
+                <tr><td colspan="4" class="text-muted">No upcoming appointments.</td></tr>
               <?php endif; ?>
             </tbody>
           </table>

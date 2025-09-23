@@ -12,21 +12,20 @@ require_once __DIR__ . '/../../includes/header.php';
       <h1 class="h6 mb-2">Welcome</h1>
       <p class="text-muted mb-0">Scan QR or enter the 6-digit code to check in a patient.</p>
     </div></div>
+<form method="post" action="<?= $baseUrl ?>/index.php?p=visits/checkin">
+  <div class="col-md-6">
+    <label class="form-label">Appointment ID</label>
+    <input type="number" name="appointment_id" class="form-control" placeholder="e.g., 42" required>
+    <div class="form-text">Enter the numeric Appointment ID. Leave patient/clinician blank.</div>
+  </div>
 
-    <div class="card mb-4"><div class="card-body">
-      <form class="row g-3" method="post" action="<?= $routeReception ?>/checkin.php">
-        <div class="col-md-6">
-          <label for="code" class="form-label">Check-in code</label>
-          <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-hash"></i></span>
-            <input id="code" name="code" class="form-control" placeholder="e.g., 123-456">
-          </div>
-        </div>
-        <div class="col-md-6 d-flex align-items-end">
-          <button class="btn btn-primary" type="submit"><i class="bi bi-door-open"></i> Check-in</button>
-        </div>
-      </form>
-    </div></div>
+  <div class="col-12">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check2-circle"></i> Check in
+    </button>
+  </div>
+</form>
+
 
     <div class="card"><div class="card-body">
       <h2 class="h6 mb-2">Recent Check-ins</h2>

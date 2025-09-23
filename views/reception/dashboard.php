@@ -2,70 +2,56 @@
 declare(strict_types=1);
 
 // Guard: reception only.
-require __DIR__ . '/../../includes/auth_guard.php';
+require_once __DIR__ . '/../../includes/auth_guard.php';
 require_auth_role('reception');
+
+// Ensure PDO + repo
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  require_once __DIR__ . '/../../config/db.php';
+}
+require_once __DIR__ . '/../../lib/VisitRepo.php';
 
 $title  = 'Reception · Dashboard';
 $active = 'dashboard';
 $menu   = 'reception';
 
 // KPI defaults
-$kpi_arrivals_today = '—';
-$kpi_upcoming_appts = '—';
-$kpi_open_tickets   = '—'; // placeholder until a tickets table exists
+$kpi_arrivals_today = '0';
+$kpi_upcoming_appts = '0';
+$kpi_open_tickets   = '0';
 
-// Table rows for today's arrivals
+// Table rows for today's arrivals (via VIEW)
 $arrivals = [];
 
 try {
-    if (isset($pdo) && $pdo instanceof PDO) {
-        // Arrivals today = visits with checkin_time today
-        $kpi_arrivals_today = (string)(
-            $pdo->query("SELECT COUNT(*) AS n
-                         FROM visits
-                         WHERE DATE(checkin_time) = CURRENT_DATE()")
-                ->fetch()['n'] ?? '0'
-        );
+  // Arrivals today (view already limited to today)
+  $kpi_arrivals_today = (string)($pdo->query("SELECT COUNT(*) FROM v_reception_arrivals_today")->fetchColumn() ?: '0');
 
-        // Upcoming appointments (next 24h) – adjust window as you like
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) AS n
-            FROM appointments
-            WHERE scheduled_at BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 DAY)
-        ");
-        $stmt->execute();
-        $kpi_upcoming_appts = (string)($stmt->fetch()['n'] ?? '0');
+  // Upcoming appointments (next 24h, ignoring Cancelled)
+  $stmt = $pdo->query("
+    SELECT COUNT(*) 
+    FROM appointments 
+    WHERE scheduled_at >= NOW() 
+      AND scheduled_at < NOW() + INTERVAL 1 DAY
+      AND status <> 'Cancelled'
+  ");
+  $kpi_upcoming_appts = (string)($stmt->fetchColumn() ?: '0');
 
-        // Today’s arrivals table
-        $stmt = $pdo->prepare("
-            SELECT
-                DATE_FORMAT(v.checkin_time, '%H:%i')   AS time,
-                CONCAT(p.first_name,' ',p.last_name)   AS patient,
-                CONCAT(c.first_name,' ',c.last_name)   AS clinician,
-                COALESCE(v.status, 'Present')          AS status,
-                COALESCE(v.notes,  '')                 AS notes,
-                p.id AS patient_id
-            FROM visits v
-            JOIN patients   p ON p.id = v.patient_id
-            LEFT JOIN clinicians c ON c.id = v.clinician_id
-            WHERE DATE(v.checkin_time) = CURRENT_DATE()
-            ORDER BY v.checkin_time DESC, v.id DESC
-            LIMIT 50
-        ");
-        $stmt->execute();
-        $arrivals = $stmt->fetchAll() ?: [];
+  // Open tickets (if table exists)
+  try {
+    $kpi_open_tickets = (string)($pdo->query("SELECT COUNT(*) FROM tickets WHERE status='Open'")->fetchColumn() ?: '0');
+  } catch (Throwable $e) {
+    // leave default if tickets table is missing
+  }
 
-        // Tickets placeholder example (uncomment when you add tickets table)
-        // $kpi_open_tickets = (string)(
-        //     $pdo->query("SELECT COUNT(*) AS n FROM tickets WHERE status='Open'")
-        //         ->fetch()['n'] ?? '0'
-        // );
-    }
+  // Arrivals list from read-only view
+  $arrivals = VisitRepo::arrivalsToday($pdo);
 } catch (Throwable $e) {
-    // Keep placeholders; do not break the dashboard
+  $_SESSION['flash_error'] = 'Failed to load dashboard: ' . $e->getMessage();
 }
 
-require_once __DIR__ . '/../../includes/header.php'; // provides $routeReception and loads nav
+// Layout header (provides $routeReception and nav)
+require_once __DIR__ . '/../../includes/header.php';
 ?>
 <div class="row g-4">
   <?php require_once __DIR__ . '/_sidebar.php'; ?>
@@ -133,44 +119,39 @@ require_once __DIR__ . '/../../includes/header.php'; // provides $routeReception
               </tr>
             </thead>
             <tbody>
-              <?php if (!empty($arrivals)): ?>
-                <?php foreach ($arrivals as $row): ?>
+              <?php if ($arrivals): ?>
+                <?php foreach ($arrivals as $r): ?>
                   <tr>
-                    <td><?= htmlspecialchars($row['time']) ?></td>
-                    <td><a href="<?= $routeReception ?>/patients.php?id=<?= (int)$row['patient_id'] ?>">
-                      <?= htmlspecialchars($row['patient']) ?>
-                    </a></td>
-                    <td><?= htmlspecialchars($row['clinician'] ?? '—') ?></td>
-                    <td><span class="badge bg-secondary"><?= htmlspecialchars($row['status']) ?></span></td>
-                    <td class="text-muted"><?= htmlspecialchars($row['notes']) ?></td>
+                    <td><?= htmlspecialchars(date('H:i', strtotime($r['checkin_time']))) ?></td>
+                    <td><?= htmlspecialchars($r['patient_name'] ?? '—') ?></td>
+                    <td><?= htmlspecialchars($r['clinician_name'] ?? '—') ?></td>
+                    <td>
+                      <?php
+                        $st = (string)($r['status'] ?? 'Present');
+                        $badge = 'success';
+                        if ($st === 'Pending')   $badge = 'secondary';
+                        if ($st === 'Cancelled') $badge = 'danger';
+                      ?>
+                      <span class="badge bg-<?= $badge ?>"><?= htmlspecialchars($st) ?></span>
+                    </td>
+                    <td class="text-muted"><?= htmlspecialchars($r['notes'] ?? '') ?></td>
                     <td class="text-end">
+                      <!-- You can add links/actions here when you have visit IDs -->
                       <div class="btn-group btn-group-sm">
-                        <a class="btn btn-outline-primary" href="<?= $routeReception ?>/checkin_complete.php?pid=<?= (int)$row['patient_id'] ?>">
+                        <a class="btn btn-outline-primary" href="<?= $routeReception ?>/checkin.php" title="New check-in">
                           <i class="bi bi-check2-circle"></i>
                         </a>
-                        <a class="btn btn-outline-secondary" href="<?= $routeReception ?>/visit_edit.php?pid=<?= (int)$row['patient_id'] ?>">
-                          <i class="bi bi-pencil"></i>
+                        <a class="btn btn-outline-secondary" href="<?= $routeReception ?>/patients.php" title="Find patient">
+                          <i class="bi bi-search"></i>
                         </a>
                       </div>
                     </td>
                   </tr>
                 <?php endforeach; ?>
               <?php else: ?>
-                <?php for ($i=0; $i<6; $i++): ?>
-                  <tr>
-                    <td>—</td>
-                    <td><a href="<?= $routeReception ?>/patients.php?id=<?= $i ?>">—</a></td>
-                    <td>—</td>
-                    <td><span class="badge bg-secondary">—</span></td>
-                    <td class="text-muted">—</td>
-                    <td class="text-end">
-                      <div class="btn-group btn-group-sm">
-                        <a class="btn btn-outline-primary" href="#"><i class="bi bi-check2-circle"></i></a>
-                        <a class="btn btn-outline-secondary" href="#"><i class="bi bi-pencil"></i></a>
-                      </div>
-                    </td>
-                  </tr>
-                <?php endfor; ?>
+                <tr>
+                  <td colspan="6" class="text-muted">No arrivals yet today.</td>
+                </tr>
               <?php endif; ?>
             </tbody>
           </table>

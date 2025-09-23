@@ -53,6 +53,7 @@ else                           { $NAV = $NAV_ADMIN     ?: []; }
   </style>
 </head>
 <body>
+<?php if (file_exists(__DIR__ . '/flash.php')) include __DIR__ . '/flash.php'; ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container">
