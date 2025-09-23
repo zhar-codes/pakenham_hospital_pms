@@ -10,43 +10,33 @@ $title  = 'Admin · Dashboard';
 $user   = $_SESSION['auth']['username'] ?? 'Admin';
 $active = 'dashboard'; // highlights in navbar/sidebar
 
-// Try to populate simple KPIs from DB if PDO ($pdo) is available.
-// Safe defaults so the page never fatals.
-$kpi_arrivals_today = '—';
-$kpi_appts_today    = '—';
-$kpi_open_tickets   = '—'; // placeholder until a tickets table exists
+// Layout header (this usually boots the app/DB and sets $pdo)
+require_once __DIR__ . '/../../includes/header.php';
 
-try {
-    // If header.php (or other include) provides $pdo, we can query.
-    if (isset($pdo) && $pdo instanceof PDO) {
-        // Arrivals today = visits with a check-in today
-        $kpi_arrivals_today = (string)(
-            $pdo->query("SELECT COUNT(*) AS n
-                         FROM visits
-                         WHERE DATE(checkin_time) = CURRENT_DATE()")
-                ->fetch()['n'] ?? '0'
-        );
-
-        // Appointments scheduled today
-        $kpi_appts_today = (string)(
-            $pdo->query("SELECT COUNT(*) AS n
-                         FROM appointments
-                         WHERE DATE(scheduled_at) = CURRENT_DATE()")
-                ->fetch()['n'] ?? '0'
-        );
-
-        // If you later add a tickets table, replace this query.
-        // $kpi_open_tickets = (string)(
-        //     $pdo->query("SELECT COUNT(*) AS n FROM tickets WHERE status='Open'")
-        //         ->fetch()['n'] ?? '0'
-        // );
-    }
-} catch (Throwable $e) {
-    // Leave KPIs as placeholders if anything fails.
+// Ensure we actually have a PDO (fallback to config if header didn't set it)
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    // adjust path if your PDO is built somewhere else
+    @require_once __DIR__ . '/../../config/db.php';
 }
 
-// Layout header (sets $baseUrl, $routeAdmin, loads nav, etc.)
-require_once __DIR__ . '/../../includes/header.php';
+// ---- KPIs from read-only view v_admin_kpis ----
+$kpi_arrivals_today = '—';
+$kpi_appts_today    = '—';
+$kpi_open_tickets   = '—';
+$kpi_date           = date('Y-m-d');
+
+try {
+    if (isset($pdo) && $pdo instanceof PDO) {
+        require_once __DIR__ . '/../../lib/DashboardRepo.php';
+        $kpis = DashboardRepo::getAdminKpis($pdo);
+        $kpi_arrivals_today = (string)($kpis['arrivals_today'] ?? '0');
+        $kpi_appts_today    = (string)($kpis['appts_today']    ?? '0');
+        $kpi_open_tickets   = (string)($kpis['open_tickets']   ?? '0');
+        $kpi_date           = (string)($kpis['kpi_date']       ?? $kpi_date);
+    }
+} catch (Throwable $e) {
+    // leave placeholders if anything fails
+}
 ?>
 <div class="row g-4">
   <?php require_once __DIR__ . '/_sidebar.php'; ?>
@@ -97,6 +87,7 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
       </div>
     </div>
+    <small class="text-muted d-block mt-2">KPI date: <?= htmlspecialchars($kpi_date) ?></small>
 
     <!-- Recent activity (placeholder list; wire up when you add activity feed) -->
     <div class="card mt-3">
